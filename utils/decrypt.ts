@@ -179,6 +179,7 @@ type decryptResponse = {
     electricity: number | undefined
     device_request_call_reason: number | undefined
     session_id: string | undefined
+    user_answer: number | undefined
     user_call: number | undefined
     call_type: number | undefined
     user_close_reason: number | undefined
@@ -204,6 +205,7 @@ export function decryptResponse(deviceResponse): decryptResponse | string | unde
             device_request_call: dpid["101"],
             electricity: dpid["102"],
             device_request_call_reason: dpid["107"],
+            user_answer: dpid["109"],
             session_id: dpid["110"],
             user_call: dpid["111"],
             call_type: dpid["112"],

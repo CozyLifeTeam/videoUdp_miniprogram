@@ -28,7 +28,5 @@ InnerAudioContext.onEnded(() => {
 InnerAudioContext.onError(() => {
     console.log("audio err");
 })
-wx.onAudioInterruptionBegin(() => {
-    console.log("AudioInterruptionBegin");
-})
+
 // 播放器end

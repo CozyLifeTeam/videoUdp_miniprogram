@@ -27,6 +27,8 @@ export class WebSocket {
     }
 
     ws_send(data) {
+        console.log("发送！：", data);
+        
         return new Promise((reslove, reject) => {
             this.ws.send({
                 data: data,

@@ -45,7 +45,8 @@ class Media {
     public stackAudio: any[] = [];
     public fs = new FileSystemManager();
 
-    private isOnMessaeWS: boolean = false
+    private isOnMessaeWS: boolean = false;
+    private isSubcribe:boolean = false;
 
     constructor(MediaParam: MediaParam) {
         this.udpAudioSocket = new UDPSocket(MediaParam.UDPAudio);
@@ -64,12 +65,13 @@ class Media {
             console.log(res);
 
             this.wsSocket.onOpen(() => {
+                this.isSubcribe = true;
                 this.device_id = device_id;
                 this.device_key = device_key;
                 this.wsSocket.ws_send(`cmd=subscribe&topic=device_${device_id}&from=control&device_id=${device_id}&device_key=${device_key}`)
                 this.queryElectricity();
                 // 发送心跳包，保持websocket连接
-                clearInterval(this.wsSocketTimer)
+                clearInterval(this.wsSocketTimer);
                 this.wsSocketTimer = setInterval(() => {
                     this.wsSocket.ws_send(`cmd=ping`)
                 }, CONNECTION_WEBSOCKET_TIMEOUT)
@@ -97,7 +99,7 @@ class Media {
         const message = `cmd=publish&topic=control_${this.device_id}&device_id=${this.device_id}&device_key=${this.device_key}&message={"cmd":${cmd},"pv":0,"sn":"${timestamp1}","msg":${msg}}`;
 
         console.log("通过 socket 发送的 message :", message);
-        this.wsSocket.ws_send(message)
+        this.wsSocket.ws_send(message).then(res => console.log(res)).catch(err => console.log(err))
     }
 
     /**
@@ -105,6 +107,10 @@ class Media {
      * @param session_id 
      */
     callToDevice(session_id) {
+        if(this.isSubcribe == false) {
+            this.callToDevice(session_id);
+            return;
+        }
         const msg = {
             attr: [110, 111, 112],
             data: {
@@ -246,8 +252,9 @@ class Media {
             }
         }
         this.assembleDataSend(JSON.stringify(msg), 3);
-        // 发送心跳包保持连接，（视频也一直在发）
-        this.keepAudio(data);
+        // 移除定时器
+        clearInterval(this.udpAudioTimer);
+        clearInterval(this.udpVideoTimer);
         // 移除监听
         this.udpVideoSocket.offMessage();
         this.udpAudioSocket.offMessage();
@@ -274,6 +281,7 @@ class Media {
             this.udpAudioSocket.send(arrayToAb2(message))
         }, CONNECTION_TIMEOUT)
     }
+
     /**
      * 开启/关闭麦克风
      * @param command 命令，true开启；false关闭
@@ -344,6 +352,7 @@ class Media {
                     device_request_call_reason,
                     session_id,
                     user_call,
+                    user_answer,
                     call_type,
                     user_close_reason,
                     device_close_reason,
@@ -395,6 +404,18 @@ class Media {
                         session_id: session_id
                     })
                 }
+                else if (user_answer == 1) {
+                    fn({
+                        res: "用户接听",
+                        session_id: session_id
+                    })
+                }
+                else if (user_answer == 2) {
+                    fn({
+                        res: "用户拒绝接听",
+                        session_id: session_id
+                    })
+                }
                 else {
                     fn({
                         res: "解析错误！请打印response看看什么问题"
@@ -416,12 +437,12 @@ class Media {
      * @param fn 外部使用箭头函数
      */
     onMessageUDPVideo(fn: Function) {
-        
+
         this.udpVideoSocket.onMessage(res => {
             // console.log(res);
-            
+
             decryptVideo(res).then(video => {
-                
+
                 const base64Img = wx.arrayBufferToBase64(video as ArrayBufferLike);
                 fn(base64Img);
             }).catch((err) => {
