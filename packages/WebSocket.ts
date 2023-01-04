@@ -12,7 +12,8 @@ export class WebSocket {
     connectSocket() {
         return new Promise((reslove, reject) => {
             if(this.ws != undefined) {
-                reslove("已有socket连接")
+                reslove("已有socket连接");
+                return;
             }
             this.ws = wx.connectSocket({
                 url: this.url,
