@@ -1,4 +1,4 @@
-export class FileSystemManager {
+class FileSystemManager {
     public fs: WechatMiniprogram.FileSystemManager;
 
     constructor() {
@@ -77,3 +77,5 @@ export class FileSystemManager {
         })
     }
 }
+
+export const fs = new FileSystemManager();

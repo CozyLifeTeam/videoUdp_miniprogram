@@ -1,0 +1,64 @@
+
+.container {
+    width: 100%;
+    height: 50vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.image {
+    width: 500rpx;
+    height: 500rpx;
+    border-radius: 50%;
+}
+
+.bowen1 {
+    position: absolute;
+    width: 500rpx;
+    height: 500rpx;
+    background-color: #00b292;
+    opacity: 0.1;
+    border-radius: 50%;
+    animation: bowen1 3s ease 0s infinite;
+}
+
+.bowen2 {
+    position: absolute;
+    width: 500rpx;
+    height: 500rpx;
+    background-color: #00b292;
+    opacity: 0.3;
+    border-radius: 50%;
+    animation: bowen2 1.5s ease 0s infinite;
+}
+
+@keyframes bowen1 {
+    0% {
+        scale: 1;
+    }
+
+    30% {
+        opacity: 0.1;
+    }
+
+    100% {
+        scale: 1.2;
+        opacity: 0;
+    }
+}
+
+@keyframes bowen2 {
+    0% {
+        scale: 1;
+    }
+
+    75% {
+        scale: 1.1;
+    }
+
+    100% {
+        scale: 1.1;
+        opacity: 0;
+    }
+}

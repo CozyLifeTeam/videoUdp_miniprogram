@@ -1,24 +1,19 @@
 import { ab2ToArr, arrayToAb2, strToAscii } from "../utils/util";
 import { decryptVideo, decryptAudio, decryptResponse } from "../utils/decrypt";
-import { hexMD5 } from "./md5"
 import { pcm_wav } from "./pcm_to_wav";
 import { UDPSocket } from "./Udp";
-import { WebSocket } from "./WebSocket";
+import WebSocket from "./WebSocket";
 import {
     ADDRESS_UDPSOCKET,
-    ADDRESS_ONLINESEVER,
-    ADDRESS_WEBSOCKET,
     CONNECTION_AUDIOCHANNEL_TIMEOUT,
     CONNECTION_TIMEOUT,
     CONNECTION_VIDEOCHANNEL_TIMEOUT,
     PORT_AUDIO,
     PORT_VIDEO,
-    CONNECTION_WEBSOCKET_TIMEOUT
 } from "../constants/server";
 import { options, recorder } from "./RecorderManager";
 import { InnerAudioContext } from "./InnerAudioContext";
-import { FileSystemManager } from "./FileSystemManager";
-import { TOAST_NETWORKBAD } from "../constants/config";
+import { fs } from "./FileSystemManager";
 
 interface subscribeHeader {
     version: string | number
@@ -28,7 +23,6 @@ interface subscribeHeader {
 }
 
 type MediaParam = {
-    wsAddress: string,
     UDPAudio: WechatMiniprogram.UDPSocketConnectOption
     UDPVideo: WechatMiniprogram.UDPSocketConnectOption
 }
@@ -36,81 +30,37 @@ type MediaParam = {
 class Media {
     public udpVideoSocket: UDPSocket
     public udpAudioSocket: UDPSocket
-    public wsSocket: WebSocket
-    public wsSocketTimer: any        // 保持websocket的定时器
-    public udpVideoTimer: any        // 保持udp视频通信的定时器
-    public udpAudioTimer: any        // 保持udp语音通信的定时器
-    public device_id: any
-    public device_key: any
     public stackAudio: any[] = [];
-    public fs = new FileSystemManager();
 
-    private isOnMessaeWS: boolean = false;
-    private isSubcribe:boolean = false;
+    private udpVideoTimer: any        // 保持udp视频通信的定时器
+    private udpAudioTimer: any        // 保持udp语音通信的定时器
 
     constructor(MediaParam: MediaParam) {
         this.udpAudioSocket = new UDPSocket(MediaParam.UDPAudio);
         this.udpVideoSocket = new UDPSocket(MediaParam.UDPVideo);
-        this.wsSocket = new WebSocket(MediaParam.wsAddress);
         this.udpAudioSocket.bind();
         this.udpVideoSocket.bind();
     }
 
-
-    /**
-     * 1. ws订阅指定设备device_id
-     */
-    subcribe(device_id: string, device_key: string) {
-        this.wsSocket.connectSocket().then(res => {
-            console.log(res);
-
-            this.wsSocket.onOpen(() => {
-                this.isSubcribe = true;
-                this.device_id = device_id;
-                this.device_key = device_key;
-                this.wsSocket.ws_send(`cmd=subscribe&topic=device_${device_id}&from=control&device_id=${device_id}&device_key=${device_key}`)
-                this.queryElectricity();
-                // 发送心跳包，保持websocket连接
-                clearInterval(this.wsSocketTimer);
-                this.wsSocketTimer = setInterval(() => {
-                    this.wsSocket.ws_send(`cmd=ping`)
-                }, CONNECTION_WEBSOCKET_TIMEOUT)
-            })
-        })
-    }
-
     /**
      * 查询电量
+     * @param device_id 
+     * @param device_key 
      */
-    queryElectricity() {
+    queryElectricity(device_id, device_key) {
         const msg = {
             attr: [102]
         }
-        this.assembleDataSend(JSON.stringify(msg), 2)
-    }
-
-    /**
-     * 2. ws组装要发送的信息并发送
-     * @param msg 要发送的信息
-     * @param cmd 命令
-     */
-    assembleDataSend(msg, cmd) {
-        const timestamp1 = Date.parse(new Date() as any);
-        const message = `cmd=publish&topic=control_${this.device_id}&device_id=${this.device_id}&device_key=${this.device_key}&message={"cmd":${cmd},"pv":0,"sn":"${timestamp1}","msg":${msg}}`;
-
-        console.log("通过 socket 发送的 message :", message);
-        this.wsSocket.ws_send(message).then(res => console.log(res)).catch(err => console.log(err))
+        WebSocket.assembleDataSend({ msg, cmd: 3, device_id, device_key })
     }
 
     /**
      * 呼叫设备
      * @param session_id 
+     * @param device_id 
+     * @param device_key 
      */
-    callToDevice(session_id) {
-        if(this.isSubcribe == false) {
-            this.callToDevice(session_id);
-            return;
-        }
+    callToDevice(session_id, device_id, device_key) {
         const msg = {
             attr: [110, 111, 112],
             data: {
@@ -119,7 +69,7 @@ class Media {
                 112: 3,
             }
         }
-        this.assembleDataSend(JSON.stringify(msg), 3);
+        WebSocket.assembleDataSend({ msg, cmd: 3, device_id, device_key })
     }
 
     /**
@@ -189,7 +139,7 @@ class Media {
         this.onMessageUDPAudio(res => {
             const dateNow = Date.now();
             const view = pcm_wav(res, '8000', '16', '1');
-            this.fs.writeFile(view, `${wx.env.USER_DATA_PATH}/${dateNow}.wav`).then(() => {
+            fs.writeFile(view, `${wx.env.USER_DATA_PATH}/${dateNow}.wav`).then(() => {
                 InnerAudioContext.src = `${wx.env.USER_DATA_PATH}/${dateNow}.wav`;
                 InnerAudioContext.play();
             }).catch(() => { })
@@ -199,7 +149,7 @@ class Media {
     /**
      * 视频接听
      */
-    videoAnswer(session_id) {
+    videoAnswer(session_id, device_id, device_key) {
         let msg = {
             attr: [109, 110, 112, 117],
             data: {
@@ -209,13 +159,13 @@ class Media {
                 117: 3 //内网通信+
             }
         }
-        this.assembleDataSend(JSON.stringify(msg), 3);
+        WebSocket.assembleDataSend({ msg, cmd: 3, device_id, device_key })
     }
 
     /**
      * 语音接听
      */
-    audioAnswer(session_id) {
+    audioAnswer(session_id, device_id, device_key) {
         let msg = {
             attr: [109, 110, 112, 117],
             data: {
@@ -225,10 +175,10 @@ class Media {
                 117: 3 //内网通信+公网通信
             }
         }
-        this.assembleDataSend(JSON.stringify(msg), 3);
+        WebSocket.assembleDataSend({ msg, cmd: 3, device_id, device_key })
     }
 
-    noAnswer(session_id) {
+    noAnswer(session_id, device_id, device_key) {
         let msg = {
             attr: [109, 110],
             data: {
@@ -236,13 +186,13 @@ class Media {
                 110: session_id,
             }
         }
-        this.assembleDataSend(JSON.stringify(msg), 3);
+        WebSocket.assembleDataSend({ msg, cmd: 3, device_id, device_key })
     }
 
     /**
      * 5. ws关闭媒体流连接（销毁该session_id）
      */
-    closeMediaConnection(data: subscribeHeader) {
+    closeMediaConnection(data: subscribeHeader, device_id, device_key) {
         const { version, token, session_id, session_status } = data;
         const msg = {
             attr: [110, 113],
@@ -251,7 +201,7 @@ class Media {
                 113: 1          //用户主动关闭连接
             }
         }
-        this.assembleDataSend(JSON.stringify(msg), 3);
+        WebSocket.assembleDataSend({ msg, cmd: 3, device_id, device_key })
         // 移除定时器
         clearInterval(this.udpAudioTimer);
         clearInterval(this.udpVideoTimer);
@@ -261,6 +211,8 @@ class Media {
         // 停止一些服务
         recorder.stop();
         InnerAudioContext.stop();
+        // 初始化一些值
+        this.stackAudio = [];
         console.log("closeMediaConnection, 结束音视频通话！");
     }
 
@@ -317,121 +269,6 @@ class Media {
         }
     }
 
-
-    /**
-     * websocket的监听回调函数
-     * @param fn 外部使用箭头函数
-     */
-    onMessageWS(fn: Function) {
-        if (this.isOnMessaeWS == true) return;
-        this.isOnMessaeWS = true;
-
-        this.wsSocket.ws.onMessage(res => {
-            console.log(res);
-
-            const response = decryptResponse(res.data);
-            // 订阅时
-            if (typeof (response) == "string") {
-                if (
-                    response.includes('res=0') ||
-                    response.includes('num=0')
-                ) {
-                    fn({ res: "转发消息失败" });
-                }
-                else {
-                    fn({ res: "订阅设备成功" });
-                }
-            }
-            // 正常消息
-            if (typeof (response) == "object") {
-                // console.log(response);
-                // http://doc.doit/project-5/doc-8/
-                const {
-                    device_request_call,
-                    electricity,
-                    device_request_call_reason,
-                    session_id,
-                    user_call,
-                    user_answer,
-                    call_type,
-                    user_close_reason,
-                    device_close_reason,
-                    video_resolution,
-                    video_fps,
-                    device_answer,
-                } = response
-
-                if (device_request_call == 1) {
-                    fn({
-                        res: "设备发起呼叫",
-                        session_id: session_id
-                    });
-                }
-                else if (electricity) {
-                    fn({
-                        res: "查询设备电量",
-                        electricity,
-                        session_id: undefined
-                    })
-                }
-                else if (device_answer == 1) {
-                    fn({
-                        res: "设备应答呼叫",
-                        session_id: session_id
-                    });
-                }
-                else if (device_answer == 2) {
-                    fn({
-                        res: "设备拒绝呼叫",
-                        session_id: session_id
-                    });
-                }
-                else if (user_close_reason == 1) {
-                    fn({
-                        res: "用户关闭session",
-                        session_id: session_id
-                    })
-                }
-                else if (device_close_reason == 1) {
-                    fn({
-                        res: "接听超时",
-                        session_id: session_id
-                    })
-                }
-                else if (device_close_reason == 2) {
-                    fn({
-                        res: "连接超时",
-                        session_id: session_id
-                    })
-                }
-                else if (user_answer == 1) {
-                    fn({
-                        res: "用户接听",
-                        session_id: session_id
-                    })
-                }
-                else if (user_answer == 2) {
-                    fn({
-                        res: "用户拒绝接听",
-                        session_id: session_id
-                    })
-                }
-                else {
-                    fn({
-                        res: "解析错误！请打印response看看什么问题"
-                    })
-                }
-            }
-            // 解析格式错误
-            if (typeof (response) == "undefined") {
-                fn({
-                    res: "解析错误！请打印res看看什么问题"
-                });
-            }
-        })
-    }
-
-
     /**
      * udpVideo的监听回调函数
      * @param fn 外部使用箭头函数
@@ -439,7 +276,6 @@ class Media {
     onMessageUDPVideo(fn: Function) {
 
         this.udpVideoSocket.onMessage(res => {
-            // console.log(res);
 
             decryptVideo(res).then(video => {
 
@@ -466,20 +302,8 @@ class Media {
     }
 }
 
-/**
- * 网络差的情况
- */
-function networkBad() {
-    wx.showToast({
-        title: "网络不佳",
-        icon: "none",
-        duration: 1500
-    })
-}
-
 
 const option = {
-    wsAddress: ADDRESS_WEBSOCKET,
     UDPAudio: {
         address: ADDRESS_UDPSOCKET,
         port: PORT_AUDIO

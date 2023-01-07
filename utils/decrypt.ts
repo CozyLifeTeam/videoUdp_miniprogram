@@ -46,7 +46,7 @@ export function getDeviceByPid(pid) {
     let app = getApp()
     let list = app.globalData.deviceModel || wx.getStorageSync('deviceModel');
     if (list.length < 1 || pid.length < 1) return
-    
+
     for (let i = 0; i < list.length; i++) {
         for (let j = 0; j < list[i].device_model.length; j++) {
             if (list[i].device_model[j].device_product_id == pid) {
@@ -106,7 +106,7 @@ class stackAudioImpl implements stack {
 // http://doc.doit/project-23/doc-263/
 let stackVideo = new stackVideoImpl();
 export function decryptVideo(message: ArrayBufferLike) {
-    
+
     return new Promise((reslove, reject) => {
         const len = message.byteLength;
         let subPackage = {
@@ -189,37 +189,91 @@ type decryptResponse = {
     device_answer: number | undefined
 }
 
+
 /**
- * 解密设备端的应答信息 http://doc.doit/project-5/doc-8/
+ * 解析websocket收到的消息 http://doc.doit/project-5/doc-1/
  * @param deviceResponse 设备的应答信息
  */
-export function decryptResponse(deviceResponse): decryptResponse | string | undefined {
-    if (deviceResponse.indexOf("message=") == -1) return deviceResponse;
-    const dataMsg = deviceResponse.split("message=")[1];
-    const message = JSON.parse(dataMsg);
-    const cmd = message.cmd;
-    if (message.msg != undefined && message.msg.data != undefined) {
-        const dpid = message.msg.data;
-        // 可能收到的信息包括 101,102,107,110,111,112,113,114,115,116
-        return {
-            device_request_call: dpid["101"],
-            electricity: dpid["102"],
-            device_request_call_reason: dpid["107"],
-            user_answer: dpid["109"],
-            session_id: dpid["110"],
-            user_call: dpid["111"],
-            call_type: dpid["112"],
-            user_close_reason: dpid["113"],
-            device_close_reason: dpid["114"],
-            video_resolution: dpid["115"],
-            video_fps: dpid["116"],
-            device_answer: dpid["119"]
-        }
+export function decryptWSMessage(deviceResponse) {
+    const response = deviceResponse
+        .split("&")
+        .map((item) =>
+            item.split("=")
+                .map((item) => {
+                    if (item.includes("{")) return item;
+                    return `"${item}"`;
+                })
+                .join(":")
+        )
+        .join()
+        .replace(/\ +/g, '')
+        .replace(/[\r\n]/g, '');
+
+    const { cmd, device_id, topic, message, res, num } = JSON.parse(`{${response}}`);
+
+    const dpid = message?.msg?.data;
+    return {
+        cmd,
+        device_id,
+        dpid,
+        res,
+        num
     }
-    return;
 }
 
 
+/**
+ * 门铃：解密设备端的应答信息 http://doc.doit/project-5/doc-8/
+ * @param deviceResponse 设备的应答信息
+ */
+export function decryptResponse(dpid): decryptResponse {
+    return {
+        device_request_call: dpid["101"],
+        electricity: dpid["102"],
+        device_request_call_reason: dpid["107"],
+        user_answer: dpid["109"],
+        session_id: dpid["110"],
+        user_call: dpid["111"],
+        call_type: dpid["112"],
+        user_close_reason: dpid["113"],
+        device_close_reason: dpid["114"],
+        video_resolution: dpid["115"],
+        video_fps: dpid["116"],
+        device_answer: dpid["119"]
+    }
+}
+
+/**
+ * 将扫描包中有用的数据解密出来，并重新合并进去
+ * @param {*} device 查找到的新设备
+ * @returns {device} 解密后的设备
+ */
+export function decryptDevice(device) {
+    let { serviceData, advertisServiceUUIDs, advertisData } = device;
+    serviceData = new Uint8Array(serviceData[advertisServiceUUIDs[0]]);
+    advertisData = new Uint8Array(advertisData);
+
+    if (uuidCheck(advertisServiceUUIDs[0]) && serviceData[1] != 0) {
+        // 将有用的数据解密出来，并合并进去, 后续会用到
+        let pid = serviceData.slice(2, 8);
+        let mac = getApp().globalData.ios ? serviceData.slice(8, 14) : serviceData.slice(8, 14).reverse();
+        let info = getDeviceByPid(Uint8ToStr(pid));
+
+        let decryptedDeviceInfo = {
+            pid: Uint8ToStr(pid),
+            mac: macHex(mac),
+            net_type: serviceData[1],
+            isBinded: advertisData[0],
+            icon: info?.icon,
+            device_model_name: info?.device_model_name
+        }
+
+        Object.assign(device, decryptedDeviceInfo);
+    }
+
+    // console.log("[ok]2.5.2 将该设备数据清洗完毕：", device);
+    return device as never
+}
 
 
 // arrayBuffer处理方法

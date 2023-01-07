@@ -1,0 +1,55 @@
+
+page {
+    background-color: var(--color-bgColor);
+}
+
+.container {
+    padding: 0 30rpx;
+}
+
+.timeSelector {
+    width: 100%;
+    padding: 50rpx 0;
+}
+
+.box {
+    width: 100%;
+    background-color: #fff;
+    border-radius: 10rpx;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15rpx 30rpx;
+    margin-bottom: 20rpx;
+}
+
+.left {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.left image {
+    width: 60rpx;
+    height: 60rpx;
+    margin-right: 20rpx;
+}
+
+.time {
+    color: var(--color-h3);
+}
+
+.right image{
+    width: 100rpx;
+    height: 100rpx;
+    background-color: pink;
+    border-radius: 50%;
+}
+
+.emptyState {
+    width: 100%;
+    text-align: center;
+    color: var(--color-h2);
+    font-size: 28rpx;
+}

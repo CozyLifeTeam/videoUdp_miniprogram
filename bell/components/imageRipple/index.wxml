@@ -1,0 +1,7 @@
+
+
+<view class="container">
+    <image src="{{imageSrc}}" class="image" />
+    <view class="bowen1"></view>
+    <view class="bowen2"></view>
+</view>

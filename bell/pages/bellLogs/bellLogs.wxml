@@ -1,0 +1,28 @@
+<view class="container">
+    <!-- 自定义头部 -->
+    <custom-header>
+        <view>日志</view>
+    </custom-header>
+
+    <!-- 时间选择器 -->
+    <view class="timeSelector">
+        <time-Selector bind:onMessageTap="onMessageTap"></time-Selector>
+    </view>
+
+    <!-- 列表 --> 
+    <view class="box" wx:for="{{logs[logsIndex]}}" wx:key="*this">
+        <view class="left">
+            <image src="../../assets/images/bellLogs/bell.png" mode="widthFix"/>
+            <view class="txt">
+                <view class="title">{{item.state}}</view>
+                <view class="time">{{item.timestamp}}</view>
+            </view>
+        </view>
+        <view class="right">
+            <image src="{{item.image}}" mode="aspectFill"/>
+        </view>
+    </view>
+
+    <!-- 空状态 -->
+    <view class="emptyState" wx:if="{{loadAll}}">- 暂无消息 -</view>
+</view>

@@ -1,0 +1,8 @@
+<view class="container">
+    <view class="titleTime">{{titleTime}}</view>
+    <view class="listTime">
+        <view class="listTimeItem {{item.state ? 'hightlight' : ''}}" wx:for="{{listTime}}" wx:key="*this" bindtap="tapDate" data-tapdate="{{item.value}}" data-index="{{index}}">
+            {{item.value}}
+        </view>
+    </view>
+</view>

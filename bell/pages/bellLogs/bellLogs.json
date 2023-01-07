@@ -1,0 +1,5 @@
+{
+    "usingComponents": {
+        "time-Selector": "../../components/timeSelector/index"
+    }
+}

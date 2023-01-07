@@ -1,0 +1,50 @@
+<view class="container">
+    <!-- 自定义头部 -->
+    <custom-header>
+        <view>可视门铃</view>
+    </custom-header>
+
+    <view class="box">
+
+        <!-- 门铃状态 -->
+        <image class="bell" src="../../assets/images/index/{{isBellOn ? 'bell_active' : 'bell'}}.png" mode="widthFix" />
+
+        <!-- 电池电量 -->
+        <view class="power">电池电量：
+            <image src="../../assets/images/index/power_green.png" mode="widthFix">
+                <view class="value" style="width:{{power.width}}; background-color:{{power.bgColor}};"></view>
+            </image>
+        </view>
+
+        <!-- 呼叫/设置 -->
+        <view class="row">
+            <view class="boxColumn" bindtap="callToDevice">
+                <image src="../../assets/images/index/video.png" mode="widthFix" />
+                <view class="title">呼叫</view>
+            </view>
+            <navigator url="../setting/setting" class="boxColumn">
+                <image src="../../assets/images/index/setting.png" mode="widthFix" />
+                <view class="title">设置</view>
+            </navigator>
+        </view>
+    </view>
+
+    <!-- 信息记录 -->
+    <view class="box">
+        <view class="top">
+            <view class="txt">记录</view>
+            <navigator url="../bellLogs/bellLogs" class="txt">更多
+                <image class="arrow" src="../../assets/images/index/down.png" mode="widthFix" />
+            </navigator>
+        </view>
+
+        <view class="divid"></view>
+
+        <view class="content" wx:for="{{content}}">
+            <view class="time">{{item.timestamp}}</view>
+            <view class="text">{{item.state}}</view>
+        </view>
+        <!-- 空状态 -->
+        <view class="emptyState" wx:if="{{loadAll}}">- 暂无消息 -</view>
+    </view>
+</view>

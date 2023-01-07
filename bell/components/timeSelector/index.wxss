@@ -1,0 +1,24 @@
+
+.container {
+    width: 100%;
+    color: var(--color-h2);
+}
+
+.listTime {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-around;
+    margin-top: 10rpx;
+}
+.listTimeItem {
+    min-width: 50rpx;
+    line-height: 50rpx;
+    text-align: center;
+}
+
+.hightlight {
+    color: #fff;
+    border-radius: 50%;
+    background-color: #02b18f;
+}

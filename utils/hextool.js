@@ -421,13 +421,14 @@ function queryDevice(datas) {
     let app = getApp()
     if (datas.length == 0) datas = [0];
     console.log(app.globalData.openDeviceInfo);
+    const { device_group_id, scene_id, network } = app.globalData.openDeviceInfo;
     //判断设备类型 单个、群组、场景
-    if (app.globalData.openDeviceInfo.device_group_id || app.globalData.openDeviceInfo.scene_id) {
+    if (device_group_id || scene_id) {
         moreDeviceSend(datas, 2)
         return
     }
     //判断当前面板设备是用哪种通信方式
-    if (app.globalData.openDeviceInfo.network == "01") {
+    if (network == "01") {
         //数据重组发到蓝牙分包
         //1、获取所有key  value  2、拼接数组
         let str = []

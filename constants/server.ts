@@ -11,7 +11,7 @@ export const ADDRESS_NOWENV = getAddressByEnv(ADDRESS_TESTSEVER, ADDRESS_ONLINES
 // webSocket地址
 export const ADDRESS_WEBSOCKET = 'wss://wss-cn.doiting.com/ws';
 // websocket用户连接超时时间：单位ms（心跳包）
-export const CONNECTION_WEBSOCKET_TIMEOUT = 3000;
+export const CONNECTION_WEBSOCKET_TIMEOUT = 30000;
 
 
 

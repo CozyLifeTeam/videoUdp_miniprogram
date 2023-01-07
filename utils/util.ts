@@ -89,3 +89,17 @@ export function arrayToAb2(arr: any[]) {
     }
     return buffer
 }
+
+/**
+ * 检查该设备是否已在数组中
+ * @param {*} device 新发现的设备
+ * @param {*} arr 数组
+ * @returns {boolean} true:已存在，false:不存在
+ */
+export function isInArray(device, arr) {
+    let isIn = false;
+    arr.forEach(item => {
+        if (item.mac == device.mac) isIn = true;
+    })
+    return isIn
+}
