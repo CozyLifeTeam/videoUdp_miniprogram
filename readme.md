@@ -7,6 +7,10 @@
 
 
 
+
+
+## dpid文档
+
 |              含义              |           标识符           |     类型     |                            枚举值                            |
 | :----------------------------: | :------------------------: | :----------: | :----------------------------------------------------------: |
 |              开关              |           switch           |    number    | 数值范围：00~FF，转化为二进制为1111 1111<br/>其中每一位代表一路开关，最多支持8路开关同时设置 |
@@ -32,4 +36,54 @@
 |     使用的协议版本（暂无）     |                            |              |                                                              |
 
 
+
+## 使用
+
+```js
+// app.js
+
+import WebSocket from "./packages/WebSocket";
+
+// 连接websocket
+await WebSocket.connectSocket();
+WebSocket.keepConnect();
+WebSocket.onMessage(({ cmd, device_id, dpid, res, num }) => {
+    const p = getCurrentPages();
+    const { openDeviceInfo } = this.globalData;
+    if (
+        device_id == openDeviceInfo?.device_id ||
+        device_id == undefined
+    ) {
+        if (typeof (p[p.length - 1].TCPcallback) === 'function') {
+            p[p.length - 1].TCPcallback(dpid, cmd);
+        } else {
+            p[0].TCPcallback(dpid, cmd);
+        }
+    }
+});
+```
+
+
+
+```js
+// index.js
+
+/**
+* 订阅我的全部设备
+*/
+subscribeMyDevices(deviceArr) {
+    deviceArr.map(item => WebSocket.subcribe(item.device_id))
+},
+```
+
+
+
+```js
+// 设备控制面板页
+
+TCPcallback(data, cmd) {
+    // data 即为 dpid
+    // ......
+}
+```
 
