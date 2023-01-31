@@ -27,6 +27,7 @@ type MediaParam = {
     UDPVideo: WechatMiniprogram.UDPSocketConnectOption
 }
 
+
 class Media {
     public udpVideoSocket: UDPSocket
     public udpAudioSocket: UDPSocket
@@ -34,7 +35,6 @@ class Media {
 
     private udpVideoTimer: any        // 保持udp视频通信的定时器
     private udpAudioTimer: any        // 保持udp语音通信的定时器
-
     constructor(MediaParam: MediaParam) {
         this.udpAudioSocket = new UDPSocket(MediaParam.UDPAudio);
         this.udpVideoSocket = new UDPSocket(MediaParam.UDPVideo);
@@ -101,6 +101,9 @@ class Media {
      */
     subscribeAudio(data: subscribeHeader) {
         let message: any;
+        
+        
+
         recorder.onFrameRecorded(res => {
             const { frameBuffer } = res;
             const { version, token, session_id, session_status } = data
@@ -136,13 +139,29 @@ class Media {
         }, CONNECTION_AUDIOCHANNEL_TIMEOUT);
         // 打开麦克风
         recorder.start(options);
+        const audioCtx = wx.createWebAudioContext();
         this.onMessageUDPAudio(res => {
             const dateNow = Date.now();
             const view = pcm_wav(res, '8000', '16', '1');
-            fs.writeFile(view, `${wx.env.USER_DATA_PATH}/${dateNow}.wav`).then(() => {
-                InnerAudioContext.src = `${wx.env.USER_DATA_PATH}/${dateNow}.wav`;
-                InnerAudioContext.play();
-            }).catch(() => { })
+            const audioSource = audioCtx.createBufferSource();
+
+            audioCtx.decodeAudioData(view, (buffer) => {
+                // console.log(buffer, 2333);
+                audioSource.buffer = buffer;
+                // audioSource.loop = true;
+                // audioSource.loopEnd = 0.01;
+
+                audioSource.connect(audioCtx.destination);
+                audioSource.start();
+                // console.log(audioSource);
+            }, err => {
+                console.log(err, 23333)
+            })
+ 
+            // fs.writeFile(view, `${wx.env.USER_DATA_PATH}/${dateNow}.wav`).then(() => {
+            //     InnerAudioContext.src = `${wx.env.USER_DATA_PATH}/${dateNow}.wav`;
+            //     InnerAudioContext.play();
+            // }).catch(() => { })
         })
     }
 
