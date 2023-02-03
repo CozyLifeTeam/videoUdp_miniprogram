@@ -30,7 +30,9 @@ Page({
                 title: "免打扰时间",
                 checked: false
             },
-        ]
+        ],
+        CustomBar: getApp().globalData.CustomBar,
+
     },
     switch1Change({ detail: { value }, currentTarget: { dataset: { title } } }) {
         console.log(value, title);

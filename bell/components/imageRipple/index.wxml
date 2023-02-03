@@ -1,7 +1,7 @@
 
 
 <view class="container">
-    <image src="{{imageSrc}}" class="image" />
+    <image src="{{imageSrc}}" class="image" mode="aspectFill" />
     <view class="bowen1"></view>
     <view class="bowen2"></view>
 </view>

@@ -43,7 +43,7 @@ page {
 .right image{
     width: 100rpx;
     height: 100rpx;
-    background-color: pink;
+    /* background-color: pink; */
     border-radius: 50%;
 }
 

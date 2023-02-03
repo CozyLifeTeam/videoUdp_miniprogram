@@ -5,15 +5,21 @@ import { request } from "../../../../packages/Request"
 import { ADDRESS_NOWENV } from "../../../../constants/server"
 import { decryptResponse } from "../../../../utils/decrypt";
 
+
 const app = getApp();
 Page({
     data: {
         imageSrc: '../../assets/images/callByDevice/video.png',
+        CustomBar: app.globalData.CustomBar,
     },
     onLoad() {
+        this.getImage();
+        InnerAudioContext.src = PATH_BELLRING;
+        InnerAudioContext.play();
+    },
+    getImage() {
         const { device_id } = app.globalData.openDeviceInfo;
         const { token } = app.globalData.czUserInfo;
-
         request({
             method: 'GET',
             url: ADDRESS_NOWENV + '/api/app/device/video/image_info',
@@ -23,24 +29,20 @@ Page({
                 session_id: wx.getStorageSync('session_id')
             }
         }).then(res => {
-            try {
+            if (res.ret == 1) {
                 this.setData({
                     imageSrc: (res as unknown as any).info.image_path
                 });
             }
-            catch {
-                wx.showToast({
-                    title: '获取图像失败',
-                    icon: 'none'
-                })
+            // 获取不到时
+            else {
+                setTimeout(() => {
+                    this.getImage();
+                }, 1000);
             }
-        }).catch(err => {
-            console.log(err);
         })
-        InnerAudioContext.src = PATH_BELLRING;
-        InnerAudioContext.play();
     },
-    TCPcallback(data, cmd) {
+    WSocketCallback(data, cmd) {
         const {
             device_request_call,
             electricity,
@@ -81,9 +83,9 @@ Page({
     videoAnswer() {
         const session_id = wx.getStorageSync("session_id");
         const { device_id, device_key } = app.globalData.openDeviceInfo;
+        InnerAudioContext.stop();
 
         media.videoAnswer(session_id, device_id, device_key);
-        InnerAudioContext.stop()
         wx.navigateTo({
             url: "../call/call?isVideo=true"
         })
@@ -91,9 +93,9 @@ Page({
     audioAnswer() {
         const session_id = wx.getStorageSync("session_id");
         const { device_id, device_key } = app.globalData.openDeviceInfo;
+        InnerAudioContext.stop();
 
         media.audioAnswer(session_id, device_id, device_key);
-        InnerAudioContext.stop()
         wx.navigateTo({
             url: `../call/call?isVideo=${false}`
         })
@@ -101,6 +103,7 @@ Page({
     noAnswer() {
         const session_id = wx.getStorageSync("session_id");
         const { device_id, device_key } = app.globalData.openDeviceInfo;
+        InnerAudioContext.stop();
         media.noAnswer(session_id, device_id, device_key);
         wx.showLoading({
             title: "请稍等..."
@@ -108,7 +111,6 @@ Page({
         setTimeout(() => {
             wx.hideLoading()
             wx.navigateBack();
-            InnerAudioContext.stop()
         }, 300)
     },
 })

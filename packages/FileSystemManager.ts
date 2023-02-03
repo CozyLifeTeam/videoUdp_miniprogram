@@ -34,6 +34,10 @@ class FileSystemManager {
         })
     }
 
+    writeFileSync(data: ArrayBufferLike, filePath: string) {
+        this.fs.writeFileSync(filePath, data);
+    }
+
     getFileInfo(filePath) {
         return new Promise((reslove, reject) => {
             this.fs.getFileInfo({

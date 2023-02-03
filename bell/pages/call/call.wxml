@@ -1,15 +1,18 @@
 <view class="container">
     <!-- 自定义头部 -->
-    <custom-header>
+    <custom-header style="width: 100%; position: fixed;top: 0;z-index: 1;">
         <view>{{isVideo ? "视频通话" : "语音通话"}}</view>
     </custom-header>
+
+    <view style="width: 100%; height: {{CustomBar}}px;"></view>
+
 
     <!-- 视频区域 -->
     <view class="videoArea">
         <image wx:if="{{isVideo}}" src="{{imageSrc}}" mode="aspectFill" style="width: {{isVideo ? '100%' : '500rpx'}}; height: {{isVideo ? '50vh' : '500rpx'}}; ">
             <view wx:if="{{isNetworkBad}}" class="networkBad">网络开小差了，请稍等</view>
         </image>
-        <image-Ripple wx:else imageSrc='../../assets/images/call/audioCall.png' />
+        <image-Ripple wx:else imageSrc='../../assets/images/call/phone.png' />
     </view>
     <!-- 视频区域end -->
 

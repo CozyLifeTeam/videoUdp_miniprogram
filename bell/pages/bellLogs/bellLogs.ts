@@ -2,6 +2,7 @@ import { request } from "../../../../packages/Request"
 import { ADDRESS_GET_LOGS, PAGE_COUNT } from "../../constants/config"
 import { ADDRESS_NOWENV } from "../../../../constants/server"
 
+
 const app = getApp();
 function getUnixTime(dateStr) {
     var newstr = dateStr.replace(/-/g, '/');
@@ -9,6 +10,10 @@ function getUnixTime(dateStr) {
     var time_str = date.getTime().toString();
     return time_str.substr(0, 10);
 };
+function formatNumber(n: number){
+    const s = n.toString()
+    return s[1] ? s : '0' + s
+}
 Page({
     data: {
         time: {
@@ -19,6 +24,8 @@ Page({
         logs: {},
         logsIndex: undefined,
         loadAll: false,
+        CustomBar: app.globalData.CustomBar,
+
     },
 
     /**
@@ -102,8 +109,9 @@ Page({
             console.log(res);
             
             setLoadAll(info.total);
+            
             info.list.forEach(item => {
-                item.timestamp = `${new Date(item.timestamp * 1000).getHours()}: ${new Date(item.timestamp * 1000).getMinutes()}`;
+                item.timestamp = `${new Date(item.timestamp * 1000).getHours()}: ${formatNumber(new Date(item.timestamp * 1000).getMinutes())}`;
                 item.state = decryptState(item.state);
             });
             if (logs[`${param.logsIndex}`] != undefined) {

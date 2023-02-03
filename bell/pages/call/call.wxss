@@ -15,7 +15,7 @@
 
 .videoArea image {
     /* margin-left: 100rpx; */
-    background-color: #000;
+    /* background-color: #000; */
     position: relative;
 }
 

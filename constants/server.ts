@@ -18,8 +18,11 @@ export const CONNECTION_WEBSOCKET_TIMEOUT = 30000;
 // udp媒体服务器ip地址
 export const ADDRESS_UDPSOCKET: string = getAddressByEnv('192.168.100.245', '8.135.109.78');
 // udp端口号
-export const PORT_VIDEO: number = 7897;
 export const PORT_AUDIO: number = 7896;
+export const PORT_VIDEO: number = 7897;
+// 内网下的udp端口号
+export const PORT_LAN_AUDIO: number = 7898;
+export const PORT_LAN_VIDEO: number = 7899;
 // 通用控制udp长连接时间：单位ms（通用心跳包）
 export const CONNECTION_TIMEOUT = 2000;
 // udp视频通道用户连接超时时间：单位ms（心跳包）

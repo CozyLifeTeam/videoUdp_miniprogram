@@ -1,6 +1,5 @@
 // 1.7.0 及以上版本，最多可以同时存在 5 个 WebSocket 连接。
 // 1.7.0 以下版本，一个小程序同时只能有一个 WebSocket 连接，如果当前已存在一个 WebSocket 连接，会自动关闭该连接，并重新创建一个 WebSocket 连接。
-
 import { ADDRESS_WEBSOCKET, CONNECTION_WEBSOCKET_TIMEOUT } from "../constants/server";
 import { decryptWSMessage } from "../utils/decrypt";
 
@@ -8,6 +7,7 @@ import { decryptWSMessage } from "../utils/decrypt";
 class WebSocketApiBase {
     public url: string;
     public ws: WechatMiniprogram.SocketTask | any;
+    public isConnect = false;
 
     constructor(url: string) {
         this.url = url;
@@ -22,27 +22,32 @@ class WebSocketApiBase {
             this.ws = wx.connectSocket({
                 url: this.url,
                 success: res => {
-
-                    reslove(res)
+                    this.isConnect = true;
+                    reslove(res);
                 },
                 fail: err => {
                     reject(err)
                 }
-            })
+            });
         })
     }
 
     ws_send(data) {
         return new Promise((reslove, reject) => {
-            this.ws.send({
-                data: data,
-                success: (res) => {
-                    reslove("通过 socket 发送的 message :" + data)
-                },
-                fail: err => {
-                    reject(err);
-                }
-            })
+            if (this.isConnect) {
+                this.ws.send({
+                    data: data,
+                    success: (res) => {
+                        reslove("通过 socket 发送的 message :" + data)
+                    },
+                    fail: err => {
+                        reject(err);
+                    }
+                })
+            }else {
+                this.ws_send(data);
+            }
+
         })
     }
 
@@ -57,7 +62,7 @@ class WebSocketApiBase {
         this.ws.onError(err => {
             console.log(err, "websocket连接失败");
             wx.showToast({
-                title: "websocket连接失败",
+                title: "socket连接失败，请重新启动",
                 icon: 'none'
             })
         })
@@ -110,9 +115,8 @@ class WebSocketModel extends WebSocketApiBase {
     onMessage(fn: Function) {
         this.ws.onMessage(res => {
             console.log(res);
-
             const response = decryptWSMessage(res.data);
-            console.log("websocket接收到消息：", response);
+            // console.log("websocket接收到消息：", response);
             if (response.dpid) fn(response);
         })
     }

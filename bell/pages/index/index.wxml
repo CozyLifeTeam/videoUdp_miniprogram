@@ -1,8 +1,14 @@
 <view class="container">
     <!-- 自定义头部 -->
-    <custom-header>
+    <!-- <custom-header style="width: 100%; position: fixed;top: 0;z-index: 1;">
+        <view>可视门铃</view>
+    </custom-header> -->
+
+    <custom-header style="width: 100%; z-index: 1;">
         <view>可视门铃</view>
     </custom-header>
+
+    <view style="width: 100%; height: {{CustomBar}}px;"></view>
 
     <view class="box">
 

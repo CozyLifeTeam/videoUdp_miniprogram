@@ -119,13 +119,14 @@ export function decryptVideo(message: ArrayBufferLike) {
             chunk_last: handleAb2(message.slice(28, 29)),
             imageContent: ab2ToArr(message.slice(29, len))
         }
+        console.log(subPackage.device_id, subPackage.session_id);
+        
         // const now = Date.now();
         // console.log(stackVideo.frame_index, subPackage.frame_index, "frame_index", now - pre);
         // console.log(stackVideo.imageContent, subPackage.imageContent, "imageContent");
         // console.log(subPackage.chunk_index, "本次的chunk_index", now - pre);
         // console.log("1.本次分包的解密信息：", subPackage);
         // pre = now;
-
         // 如果帧序不等于当前帧，则丢弃当前帧，只要最新帧
         if (subPackage.frame_index !== stackVideo.frame_index) {
             stackVideo.clearStack();
@@ -186,6 +187,7 @@ type decryptResponse = {
     device_close_reason: number | undefined
     video_resolution: number | undefined
     video_fps: number | undefined
+    push_type: number | undefined
     device_answer: number | undefined
 }
 
@@ -210,7 +212,6 @@ export function decryptWSMessage(deviceResponse) {
         .replace(/[\r\n]/g, '');
 
     const { cmd, device_id, topic, message, res, num } = JSON.parse(`{${response}}`);
-
     const dpid = message?.msg?.data;
     return {
         cmd,
@@ -239,6 +240,7 @@ export function decryptResponse(dpid): decryptResponse {
         device_close_reason: dpid["114"],
         video_resolution: dpid["115"],
         video_fps: dpid["116"],
+        push_type: dpid["117"],
         device_answer: dpid["119"]
     }
 }
@@ -306,7 +308,4 @@ function isArrayHasUndefined(arr: any[]): boolean {
     }
     return false
 }
-
-
-
 

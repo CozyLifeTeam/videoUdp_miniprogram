@@ -21,11 +21,12 @@ Page({
         HEADER_SENDMESSAGE: {},
         // 当前网络是否差
         isNetworkBad: false,
+        CustomBar: app.globalData.CustomBar,
     },
     // 控制通话持续时间的定时器
     durationTimer: 0,
 
-    onLoad(options) {
+    async onLoad(options) {
         const { isVideo } = options;
         const HEADER_SENDMESSAGE = {
             version: 1,
@@ -35,7 +36,7 @@ Page({
         }
         this.setData({
             isVideo: isVideo == 'true' ? true : false,
-            HEADER_SENDMESSAGE
+            HEADER_SENDMESSAGE,
         })
         this.startVideoCall();
         this.startTiming();
@@ -156,7 +157,7 @@ Page({
             duration: 1500
         })
     },
-    TCPcallback(data, cmd) {
+    WSocketCallback(data, cmd) {
         const {
             device_close_reason,
         } = decryptResponse(data);
@@ -170,6 +171,10 @@ Page({
             }).then(() => {
                 wx.reLaunch({
                     url: "subPac/bell/pages/index/index"
+                }).catch(() => {
+                    wx.reLaunch({
+                        url: "pages/index/index"
+                    })
                 })
             })
         }

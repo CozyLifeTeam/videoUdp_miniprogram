@@ -1,8 +1,11 @@
 <view class="container">
     <!-- 自定义头部 -->
-    <custom-header>
+    <custom-header style="width: 100vw; position: fixed;top: 0;z-index: 1;">
         <view>日志</view>
     </custom-header>
+
+    <view style="width: 100%; height: {{CustomBar}}px;"></view>
+
 
     <!-- 时间选择器 -->
     <view class="timeSelector">

@@ -1,10 +1,12 @@
-import { media } from "../../../../packages/Control";
+import { LAN_Media, media } from "../../../../packages/Control";
 import { ADDRESS_BELLRING, PATH_BELLRING } from "../../../../constants/config";
 import { ADDRESS_NOWENV } from "../../../../constants/server"
 import { ADDRESS_GET_LOGS, PAGE_COUNT } from "../../constants/config"
 import { request } from "../../../../packages/Request"
 import WebSocket from "../../../../packages/WebSocket";
 import { decryptResponse } from "../../../../utils/decrypt";
+import { LAN_UDP } from "../../../../packages/Udp"
+import { TCPSocket } from "../../../../packages/Tcp";
 
 const fs = wx.getFileSystemManager();
 const app = getApp();
@@ -14,6 +16,7 @@ function getUnixTime(dateStr) {
     var time_str = date.getTime().toString();
     return time_str.substr(0, 10);
 };
+
 Page({
     data: {
         time: {
@@ -30,9 +33,11 @@ Page({
         power: {
             width: (100 * 0.85) + '%',
             bgColor: '#40ce29'
-        }
+        },
+        CustomBar: app.globalData.CustomBar,
     },
     requestLogs(param: requestLogsOption) {
+
         const setLoadAll = total => {
             if (total == 0) {
                 this.setData({
@@ -88,6 +93,31 @@ Page({
     onLoad() {
         const { device_id, device_key } = app.globalData.openDeviceInfo;
         WebSocket.subcribe(device_id, device_key);
+        const UDPSearchInterval = setInterval(() => {
+            LAN_UDP.searchDevice();
+        }, 200);
+
+        LAN_UDP.onMessage((res) => {
+            const { msg: { did, ip } } = res;
+            if (device_id == did) {
+                console.log(did, ip, true);
+                // 内网直连
+                LAN_Media.init(ip);
+                clearInterval(UDPSearchInterval);
+                TCPSocket.connect(ip, 5555).then(res => {
+                    const msg = {
+                        "attr": [110, 111, 112, 117],        //最多支持同时设置10个属性;
+                        "data": {
+                            "110": "1111",
+                            "111": 1,
+                            "112": 3,
+                            "117": 1,
+                        }
+                    }
+                    TCPSocket.write(3, msg)
+                });
+            }
+        })
         this.downloadBellRing();
     },
     onShow() {
@@ -99,15 +129,61 @@ Page({
             logsIndex: 0
         })
     },
-    TCPcallback(data, cmd) {
+    TCPcallback(res) {
+        const dpid = res.msg.data;
         const {
             device_request_call,
             electricity,
             session_id,
             device_answer,
+            push_type
+        } = decryptResponse(dpid);
+
+
+        // 设备呼叫
+        if (device_request_call == 1) {
+            wx.setStorageSync("session_id", session_id)
+            wx.navigateTo({
+                url: "../callByDevice/callByDevice",
+            })
+        }
+        // 查询电量
+        else if (electricity) {
+            this.setData({
+                [`power.width`]: electricity / 10 * 0.85 + "%",
+                [`power.bgColor`]: electricity / 10 > 30 ? '#40ce29' : '#ff2929'
+            })
+        }
+        // 设备应答呼叫
+        else if (device_answer == 1) {
+            wx.setStorageSync("session_id", session_id);
+            wx.navigateTo({
+                url: "../call/call?isVideo=true",
+            })
+            wx.hideLoading();
+        }
+        // 设备拒绝应答呼叫
+        else if (device_answer == 1) {
+            wx.showModal({
+                title: '提示',
+                content: '设备拒绝呼叫，请重试',
+                showCancel: false
+            })
+            wx.hideLoading();
+        }
+    },
+    WSocketCallback(data, cmd) {
+        const {
+            device_request_call,
+            electricity,
+            session_id,
+            device_answer,
+            push_type
         } = decryptResponse(data);
-        console.log("%c接收到消息，" + decryptResponse(data), "color:red");
-        
+        // console.log("%c接收到消息，" + decryptResponse(data), "color:red");
+
+        // 内网通信的情况
+        if (push_type == 1) return;
         // 设备呼叫
         if (device_request_call == 1) {
             wx.setStorageSync("session_id", session_id)
@@ -142,7 +218,7 @@ Page({
     },
     callToDevice() {
         wx.showLoading({
-            title: "加载中"
+            title: "加载中",
         });
         // 随机生成session_id
         const session_id = parseInt((Math.random() * 9000 + 1000) as unknown as string).toString();

@@ -328,12 +328,12 @@ function moreDeviceSend(datas, cmd) {
         .then(function (res) {
             console.log("moreDeviceSend-OK", res)
             if (res.ret == 1) {
-                //调用最后一个页面的TCPcallback函数
+                //调用最后一个页面的WSocketCallback函数
                 let p = getCurrentPages()
-                if (typeof (p[p.length - 1].TCPcallback) === 'function') {
-                    p[p.length - 1].TCPcallback(payload2, cmd);
+                if (typeof (p[p.length - 1].WSocketCallback) === 'function') {
+                    p[p.length - 1].WSocketCallback(payload2, cmd);
                 } else {
-                    if (typeof p[0].TCPcallback === 'function') p[0].TCPcallback(payload2, cmd);
+                    if (typeof p[0].WSocketCallback === 'function') p[0].WSocketCallback(payload2, cmd);
                 }
                 app.globalData.actual = payload2;
             } else {
@@ -404,14 +404,14 @@ function datasBackToPage(msg, network) {
             }
         }
     }
-    //调用最后一个页面的TCPcallback函数
+    //调用最后一个页面的WSocketCallback函数
     let p = getCurrentPages()
     // console.log(p, "页面栈出问题了");
-    // console.log(data, "准备调用TCPcallback函数，这是当前数据");
-    if (typeof (p[p.length - 1].TCPcallback) === 'function') {
-        p[p.length - 1].TCPcallback(data, cmd);
+    // console.log(data, "准备调用WSocketCallback函数，这是当前数据");
+    if (typeof (p[p.length - 1].WSocketCallback) === 'function') {
+        p[p.length - 1].WSocketCallback(data, cmd);
     } else {
-        if (typeof p[0].TCPcallback === 'function') p[0].TCPcallback(data, cmd);
+        if (typeof p[0].WSocketCallback === 'function') p[0].WSocketCallback(data, cmd);
     }
     getApp().globalData.actual = data;
 }
@@ -421,14 +421,13 @@ function queryDevice(datas) {
     let app = getApp()
     if (datas.length == 0) datas = [0];
     console.log(app.globalData.openDeviceInfo);
-    const { device_group_id, scene_id, network } = app.globalData.openDeviceInfo;
     //判断设备类型 单个、群组、场景
-    if (device_group_id || scene_id) {
+    if (app.globalData.openDeviceInfo.device_group_id || app.globalData.openDeviceInfo.scene_id) {
         moreDeviceSend(datas, 2)
         return
     }
     //判断当前面板设备是用哪种通信方式
-    if (network == "01") {
+    if (app.globalData.openDeviceInfo.network == "01") {
         //数据重组发到蓝牙分包
         //1、获取所有key  value  2、拼接数组
         let str = []

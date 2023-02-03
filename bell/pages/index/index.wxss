@@ -18,6 +18,7 @@
     background-color: #fff;
     border-radius: 20rpx;
     padding-bottom: 40rpx;
+    margin-bottom: 40rpx;
 }
 
 .bell {
