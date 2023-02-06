@@ -1,7 +1,7 @@
 import { ab2ToArr, arrayToAb2, strToAscii } from "../utils/util";
 import { decryptVideo, decryptAudio, decryptResponse } from "../utils/decrypt";
 import { pcm_wav } from "./pcm_to_wav";
-import { UDPSocket } from "./Udp";
+import { LAN_UDP, UDPSocket } from "./Udp";
 import WebSocket from "./WebSocket";
 import {
     ADDRESS_UDPSOCKET,
@@ -155,27 +155,20 @@ class Media {
         recorder.start(options);
         const audioCtx = wx.createWebAudioContext();
         this.onMessageUDPAudio(res => {
-            const dateNow = Date.now();
             const view = pcm_wav(res, '8000', '16', '1');
             const audioSource = audioCtx.createBufferSource();
 
             audioCtx.decodeAudioData(view, (buffer) => {
-                // console.log(buffer, 2333);
                 audioSource.buffer = buffer;
-                // audioSource.loop = true;
-                // audioSource.loopEnd = 0.01;
+                var gainNode = audioCtx.createGain()
+                gainNode.gain.value = 0.1 // 10 % 
+                gainNode.connect(audioCtx.destination)
 
-                audioSource.connect(audioCtx.destination);
+                audioSource.connect(gainNode);
                 audioSource.start();
-                // console.log(audioSource);
             }, err => {
                 console.log(err, 23333)
             })
-
-            // fs.writeFile(view, `${wx.env.USER_DATA_PATH}/${dateNow}.wav`).then(() => {
-            //     InnerAudioContext.src = `${wx.env.USER_DATA_PATH}/${dateNow}.wav`;
-            //     InnerAudioContext.play();
-            // }).catch(() => { })
         })
     }
 
@@ -345,6 +338,8 @@ class LAN_MediaClass extends Media {
         super(MediaParam)
         this.TCPSocket = wx.createTCPSocket();
     }
+
+
 
     init(ip) {
         return new Promise((reslove, reject) => {
@@ -669,8 +664,62 @@ class LAN_MediaClass extends Media {
     }
 }
 
-
+/**
+ * 初始化 - 选择是内网直连还是公网，
+ * 默认是优先内网
+ * @param isLAN 是否需要内网(自动判断能否内网，不能则还是公网)
+ */
+export function init(device_id, isLAN = true) {
+    return new Promise(async (reslove, reject) => {
+        if (!isLAN) {
+            media = _media;
+            reslove({
+                media: media,
+                state: '公网'
+            });
+            return;
+        }
+        // 当前是否开启wifi
+        const { wifi } = await wx.getConnectedWifi({});
+        if (!wifi) {
+            media = _media;
+            reslove({
+                media: media,
+                state: '公网'
+            });
+            return;
+        }
+        // 判定500ms后结束
+        const initTimeout = setTimeout(() => {
+            media = _media;
+            clearInterval(UDPSearchInterval);
+            reslove({
+                media: media,
+                state: '公网'
+            });
+            return;
+        }, 500);
+        // UDP广播帧搜索
+        const UDPSearchInterval = setInterval(() => {
+            LAN_UDP.searchDevice();
+        }, 50);
+        LAN_UDP.onMessage(res => {
+            const { msg: { did, ip } } = res;
+            if (device_id == did) {
+                media = LAN_Media;
+                LAN_Media.init(ip);
+                clearInterval(UDPSearchInterval);
+                clearTimeout(initTimeout);
+                reslove({
+                    media: media,
+                    state: '内网'
+                });
+                return;
+            }
+        })
+    })
+}
 
 export const _media = new Media(option)
 export const LAN_Media = new LAN_MediaClass()
-export let media = new Media(option);
+export let media;

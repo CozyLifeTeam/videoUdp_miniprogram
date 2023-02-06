@@ -87,3 +87,87 @@ TCPcallback(data, cmd) {
 }
 ```
 
+## 内网直连
+
+```js
+// app.js
+// 连接websocket
+await WebSocket.connectSocket();
+WebSocket.keepConnect();
+WebSocket.onMessage(({ cmd, device_id, dpid, res, num }) => {
+    const p = getCurrentPages();
+    const { openDeviceInfo } = this.globalData;
+    if (typeof (p[p.length - 1].WSocketCallback) === 'function') {
+        console.log("WSocketCallback消息传入当前页");
+        p[p.length - 1].WSocketCallback(dpid, cmd, device_id);
+    } else {
+        console.log("WSocketCallback消息回到首页");
+        p[0].WSocketCallback(dpid, cmd);
+    }
+});
+// 创建TCPsocket
+TCPSocket.onMessage((res) => {
+    const p = getCurrentPages();
+    const { openDeviceInfo } = this.globalData;
+
+    if (typeof (p[p.length - 1].TCPcallback) === 'function') {
+        console.log("TCPcallback消息传入当前页");
+        p[p.length - 1].TCPcallback(res);
+    } else {
+        console.log("TCPcallback消息回到首页");
+        p[0].TCPcallback(res);
+    }
+})
+```
+
+
+
+```js
+// 门铃控制面板
+import {init} from "Control.ts"
+
+async onLoad() {
+    const { device_id, device_key } = this.data;
+    WebSocket.subcribe(device_id, device_key);
+    // media是实例对象，state是告诉当前是内网还是公网
+    const {media, state} = await init(device_id);
+    // 所有方法都在这个media里，方法与以前相同
+    // 不同的是：
+    // 以前是import导入media
+    // 现在是通过初始化获得media
+    this.setData({
+        media: media
+    })
+}
+
+// 内网的回调信息都在这里显示
+TCPcallback(res) {
+    const dpid = res.msg.data;
+    const {
+        device_request_call,
+        electricity,
+        session_id,
+        device_answer,
+        push_type
+    } = decryptResponse(dpid);
+    .....
+}
+
+// 以前叫TCPcallback，命名冲突了，为了避免歧义全部改成了WSocketCallback
+WSocketCallback(data) {
+    // 注意多了一个push_type
+    const {
+        device_request_call,
+        electricity,
+        session_id,
+        device_answer,
+        push_type
+    } = decryptResponse(data)
+    // 内网通信的情况
+    if (push_type == 1) return;
+    .....
+}
+```
+
+
+
