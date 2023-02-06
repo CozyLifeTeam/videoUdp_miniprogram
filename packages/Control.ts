@@ -46,6 +46,7 @@ class Media {
     public udpVideoSocket: UDPSocket
     public udpAudioSocket: UDPSocket
     public stackAudio: any[] = [];
+    public volume:number = 1;
 
     public udpVideoTimer: any        // 保持udp视频通信的定时器
     public udpAudioTimer: any        // 保持udp语音通信的定时器
@@ -161,10 +162,9 @@ class Media {
 
             audioCtx.decodeAudioData(view, (buffer) => {
                 audioSource.buffer = buffer;
-                var gainNode = audioCtx.createGain()
-                gainNode.gain.value = 0.1 // 10 % 
-                gainNode.connect(audioCtx.destination)
-
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = this.volume;
+                gainNode.connect(audioCtx.destination);
                 audioSource.connect(gainNode);
                 audioSource.start();
             }, err => {
@@ -287,11 +287,11 @@ class Media {
      */
     speakerState(command: boolean) {
         if (command == true) {
-            InnerAudioContext.volume = 1;
+            this.volume = 1;
             console.log("开启扬声器");
         }
         if (command == false) {
-            InnerAudioContext.volume = 0;
+            this.volume = 0;
             console.log("关闭扬声器");
         }
     }
@@ -690,7 +690,7 @@ export function init(device_id, isLAN = true) {
             });
             return;
         }
-        // 判定500ms后结束
+        // 兜底 500ms后必须结束
         const initTimeout = setTimeout(() => {
             media = _media;
             clearInterval(UDPSearchInterval);
