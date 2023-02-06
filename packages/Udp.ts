@@ -24,7 +24,7 @@ export class UDPSocket {
             message: message
         })
         const now = Date.now();
-        console.log("send", this.address, this.port, "send23333", now - this.pre);
+        // console.log("send", this.address, this.port, "send23333", now - this.pre);
         this.pre = now;
     }
 
@@ -34,10 +34,8 @@ export class UDPSocket {
 
     onMessage(fn: Function) {
         this.udp.onMessage(res => {
-            console.log(res, 2333);
-
+            // console.log(res, 2333);
             const { message } = res;
-            
             fn(message);
         })
     }
@@ -80,7 +78,7 @@ class LANCommunication extends UDPSocket {
             msg: {}
         }
         const msg = agreement_send(cmd0);
-        console.log("发送消息了", msg);
+        // console.log("发送消息了", msg);
         this.send(msg);
     }
 
@@ -103,6 +101,7 @@ class LANCommunication extends UDPSocket {
             fn(updMsgFix(message));
         })
     }
+
 }
 
 export const LAN_UDP = new LANCommunication()

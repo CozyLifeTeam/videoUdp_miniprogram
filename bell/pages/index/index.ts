@@ -1,4 +1,4 @@
-import { LAN_Media, media } from "../../../../packages/Control";
+import { LAN_Media, media, init } from "../../../../packages/Control";
 import { ADDRESS_BELLRING, PATH_BELLRING } from "../../../../constants/config";
 import { ADDRESS_NOWENV } from "../../../../constants/server"
 import { ADDRESS_GET_LOGS, PAGE_COUNT } from "../../constants/config"
@@ -90,9 +90,13 @@ Page({
             console.log(err);
         })
     },
-    onLoad() {
+    async onLoad() {
         const { device_id, device_key } = app.globalData.openDeviceInfo;
         WebSocket.subcribe(device_id, device_key);
+        const demo = await init(device_id);
+        console.log(demo);
+        
+        return;
         const UDPSearchInterval = setInterval(() => {
             LAN_UDP.searchDevice();
         }, 200);

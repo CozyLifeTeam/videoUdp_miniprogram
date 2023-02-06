@@ -16,6 +16,7 @@ import {
 import { options, recorder } from "./RecorderManager";
 import { InnerAudioContext } from "./InnerAudioContext";
 import { fs } from "./FileSystemManager";
+import { TCPSocket } from "./Tcp";
 
 const option = {
     UDPAudio: {
@@ -706,10 +707,14 @@ export function init(device_id, isLAN = true) {
         LAN_UDP.onMessage(res => {
             const { msg: { did, ip } } = res;
             if (device_id == did) {
+                // 初始化
                 media = LAN_Media;
                 LAN_Media.init(ip);
+                TCPSocket.connect(ip, 5555)
+                // 卸载监听
                 clearInterval(UDPSearchInterval);
                 clearTimeout(initTimeout);
+                LAN_UDP.offMessage();
                 reslove({
                     media: media,
                     state: '内网'
