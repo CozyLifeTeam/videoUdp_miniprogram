@@ -71,6 +71,14 @@ export class TCPSocketModel {
             fn(JSON.parse(messageStr));
         })
     }
+
+    onClose(fn) {
+        this.tcp.onClose(res => {
+            console.log(res, 23333);
+            
+            fn(res);
+        })
+    }
 }
 
 export const TCPSocket = new TCPSocketModel()

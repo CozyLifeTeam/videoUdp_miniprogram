@@ -24,7 +24,7 @@ export class UDPSocket {
             message: message
         })
         const now = Date.now();
-        // console.log("send", this.address, this.port, "send23333", now - this.pre);
+        console.log("send", this.address, this.port, "send23333", now - this.pre);
         this.pre = now;
     }
 

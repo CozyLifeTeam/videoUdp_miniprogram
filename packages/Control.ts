@@ -46,16 +46,28 @@ class Media {
     public udpVideoSocket: UDPSocket
     public udpAudioSocket: UDPSocket
     public stackAudio: any[] = [];
-    public volume:number = 1;
+    public volume: number = 1;
+    public isRecordOn = false;
 
     public udpVideoTimer: any        // 保持udp视频通信的定时器
     public udpAudioTimer: any        // 保持udp语音通信的定时器
+    // public page: any
     constructor(MediaParam: MediaParam) {
         this.udpAudioSocket = new UDPSocket(MediaParam.UDPAudio);
         this.udpVideoSocket = new UDPSocket(MediaParam.UDPVideo);
         this.udpAudioSocket.bind();
         this.udpVideoSocket.bind();
+        
+        recorder.onStart(() => {
+            console.log("麦克风开启");
+            this.isRecordOn = true;
+        })
+        recorder.onStop(() => {
+            console.log("麦克风关闭");
+            this.isRecordOn = false;
+        })
     }
+
 
     /**
      * 查询电量
@@ -116,45 +128,27 @@ class Media {
      * @param data 发送的数据
      */
     subscribeAudio(data: subscribeHeader) {
-        let message: any;
+        // 将数据拼凑出来一个完整包
+        const { version, token, session_id, session_status } = data
+        const message = [
+            ...new Array(1).fill(version),
+            ...strToAscii(token).split(","),
+            ...strToAscii(session_id).split(","),
+            ...new Array(1).fill(session_status),
+        ];
 
-
-
+        // 录音分帧，存入栈内等待发送
         recorder.onFrameRecorded(res => {
             const { frameBuffer } = res;
-            const { version, token, session_id, session_status } = data
-            // 将数据拼凑出来一个完整包
-            message = [
-                ...new Array(1).fill(version),
-                ...strToAscii(token).split(","),
-                ...strToAscii(session_id).split(","),
-                ...new Array(1).fill(session_status),
-            ];
             this.stackAudio = this.stackAudio.concat(ab2ToArr(frameBuffer));
+            console.log(frameBuffer, this.stackAudio.length);
         })
-        this.keepAudio(data);
-        // 启动定时器
-        clearInterval(this.udpAudioTimer);
-        this.udpAudioTimer = setInterval(() => {
-            let audioDataArr: any = [];
-            if (this.stackAudio.length > 1280)
-                audioDataArr = this.stackAudio.splice(0, 1280);
-            else if (this.stackAudio.length > 960)
-                audioDataArr = this.stackAudio.splice(0, 960);
-            else if (this.stackAudio.length > 640)
-                audioDataArr = this.stackAudio.splice(0, 640);
-            else if (this.stackAudio.length > 320)
-                audioDataArr = this.stackAudio.splice(0, 320);
-            else return;
+        
+        // 是否开启麦克风 ? 发语音包 : 发心跳包
+        this.isRecordOn ? this.sendAudioBuff(message) : this.keepAudio(data);
+        // 卸载监听器，避免重复创建监听器
+        this.udpAudioSocket.offMessage();
 
-            const messageArr = [...message, ...audioDataArr];
-            // 发包
-            if (audioDataArr.length > 100) {
-                this.udpAudioSocket.send(arrayToAb2(messageArr))
-            }
-        }, CONNECTION_AUDIOCHANNEL_TIMEOUT);
-        // 打开麦克风
-        recorder.start(options);
         const audioCtx = wx.createWebAudioContext();
         this.onMessageUDPAudio(res => {
             const view = pcm_wav(res, '8000', '16', '1');
@@ -171,6 +165,39 @@ class Media {
                 console.log(err, 23333)
             })
         })
+    }
+
+    /**
+     * 发送语音包
+     * @param message 包头
+     */
+    sendAudioBuff(header) {
+        console.log("sendAudioBuff", );
+        
+        // 启动定时器
+        clearInterval(this.udpAudioTimer);
+        this.udpAudioTimer = setInterval(() => {
+            let audioDataArr: any = [];
+            console.log(this.stackAudio);
+            
+            if (this.stackAudio.length > 1280)
+                audioDataArr = this.stackAudio.splice(0, 1280);
+            else if (this.stackAudio.length > 960)
+                audioDataArr = this.stackAudio.splice(0, 960);
+            else if (this.stackAudio.length > 640)
+                audioDataArr = this.stackAudio.splice(0, 640);
+            else if (this.stackAudio.length > 320)
+                audioDataArr = this.stackAudio.splice(0, 320);
+            // else return
+
+            const messageArr = [...header, ...audioDataArr];
+            console.log(audioDataArr.length, this.stackAudio.length);
+            
+            // 发包
+            if (audioDataArr.length > 100) {
+                this.udpAudioSocket.send(arrayToAb2(messageArr))
+            }
+        }, CONNECTION_AUDIOCHANNEL_TIMEOUT);
     }
 
     /**
@@ -232,6 +259,7 @@ class Media {
         // 移除定时器
         clearInterval(this.udpAudioTimer);
         clearInterval(this.udpVideoTimer);
+        clearInterval(this.udpAudioTimer);
         // 移除监听
         this.udpVideoSocket.offMessage();
         this.udpAudioSocket.offMessage();
@@ -248,6 +276,8 @@ class Media {
      * @param data 
      */
     keepAudio(data: subscribeHeader) {
+        console.log("keepAudio");
+        
         const { version, token, session_id, session_status } = data;
         const message: any = [
             ...new Array(1).fill(version),
@@ -267,17 +297,15 @@ class Media {
      */
     microState(command: boolean, data: subscribeHeader) {
         if (command == true) {
-            wx.showLoading({
-                title: "请稍等..."
-            });
-            this.subscribeAudio(data)
-            wx.hideLoading();
-            console.log("开启麦克风");
+            recorder.start(options);
+            this.isRecordOn = true;
+            this.subscribeAudio(data);
         }
         if (command == false) {
-            this.keepAudio(data);
+            this.stackAudio = [];
             recorder.stop();
-            console.log("关闭麦克风");
+            this.isRecordOn = false;
+            this.subscribeAudio(data);
         }
     }
 
@@ -301,11 +329,8 @@ class Media {
      * @param fn 外部使用箭头函数
      */
     onMessageUDPVideo(fn: Function) {
-
         this.udpVideoSocket.onMessage(res => {
-
             decryptVideo(res).then(video => {
-
                 const base64Img = wx.arrayBufferToBase64(video as ArrayBufferLike);
                 fn(base64Img);
             }).catch((err) => {
@@ -319,6 +344,7 @@ class Media {
      * @param fn 外部使用箭头函数
      */
     onMessageUDPAudio(fn: Function) {
+        let pre = 0;
         this.udpAudioSocket.onMessage(res => {
             decryptAudio(res).then(res => {
                 fn(res);
@@ -339,8 +365,6 @@ class LAN_MediaClass extends Media {
         super(MediaParam)
         this.TCPSocket = wx.createTCPSocket();
     }
-
-
 
     init(ip) {
         return new Promise((reslove, reject) => {
@@ -412,83 +436,6 @@ class LAN_MediaClass extends Media {
     }
 
     /**
-     * 3. udp订阅视频流
-     * @param data 发送的数据
-     */
-    subscribeVideo(data: subscribeHeader) {
-        const { version, token, session_id, session_status } = data
-        // 将数据拼凑出来一个完整的包并转为ArrayBuffer
-        let message: any = [
-            ...new Array(1).fill(version),
-            ...strToAscii(token).split(","),
-            ...strToAscii(session_id).split(","),
-            ...new Array(1).fill(session_status),
-        ];
-        message = arrayToAb2(message);
-        // 发包
-        clearInterval(this.udpVideoTimer);
-        this.udpVideoTimer = setInterval(() => {
-            this.udpVideoSocket.send(message)
-        }, CONNECTION_VIDEOCHANNEL_TIMEOUT)
-    }
-
-
-    /**
-     * 3. udp订阅音频流 http://doc.doit/project-23/doc-266/
-     * @param data 发送的数据
-     */
-    subscribeAudio(data: subscribeHeader) {
-        let message: any;
-        recorder.onFrameRecorded(res => {
-            const { frameBuffer } = res;
-            const { version, token, session_id, session_status } = data
-            // 将数据拼凑出来一个完整包
-            message = [
-                ...new Array(1).fill(version),
-                ...strToAscii(token).split(","),
-                ...strToAscii(session_id).split(","),
-                ...new Array(1).fill(session_status),
-            ];
-            this.stackAudio = this.stackAudio.concat(ab2ToArr(frameBuffer));
-        })
-        this.keepAudio(data);
-        // 启动定时器
-        clearInterval(this.udpAudioTimer);
-        this.udpAudioTimer = setInterval(() => {
-            let audioDataArr: any = [];
-            if (this.stackAudio.length > 1280)
-                audioDataArr = this.stackAudio.splice(0, 1280);
-            else if (this.stackAudio.length > 960)
-                audioDataArr = this.stackAudio.splice(0, 960);
-            else if (this.stackAudio.length > 640)
-                audioDataArr = this.stackAudio.splice(0, 640);
-            else if (this.stackAudio.length > 320)
-                audioDataArr = this.stackAudio.splice(0, 320);
-            else return;
-
-            const messageArr = [...message, ...audioDataArr];
-            // 发包
-            if (audioDataArr.length > 100) {
-                this.udpAudioSocket.send(arrayToAb2(messageArr))
-            }
-        }, CONNECTION_AUDIOCHANNEL_TIMEOUT);
-        // 打开麦克风
-        recorder.start(options);
-        const audioCtx = wx.createWebAudioContext();
-        this.onMessageUDPAudio(res => {
-            const view = pcm_wav(res, '8000', '16', '1');
-            const audioSource = audioCtx.createBufferSource();
-            audioCtx.decodeAudioData(view, (buffer) => {
-                audioSource.buffer = buffer;
-                audioSource.connect(audioCtx.destination);
-                audioSource.start();
-            }, err => {
-                console.log(err, 23333)
-            })
-        })
-    }
-
-    /**
      * 视频接听
      */
     videoAnswer(session_id) {
@@ -551,7 +498,6 @@ class LAN_MediaClass extends Media {
      */
     closeMediaConnection(data: subscribeHeader, device_id, device_key) {
         const { version, token, session_id, session_status } = data;
-
         const msg = {
             cmd: 3,
             pv: 0,
@@ -573,96 +519,12 @@ class LAN_MediaClass extends Media {
         this.udpAudioSocket.offMessage();
         // 停止一些服务
         recorder.stop();
-        InnerAudioContext.stop();
         // 初始化一些值
         this.stackAudio = [];
+        this.volume = 1;
         console.log("closeMediaConnection, 结束音视频通话！");
     }
 
-    /**
-     * 关闭音频，（但仍发送心跳包保持udp连接
-     * @param data 
-     */
-    keepAudio(data: subscribeHeader) {
-        const { version, token, session_id, session_status } = data;
-        const message: any = [
-            ...new Array(1).fill(version),
-            ...strToAscii(token).split(","),
-            ...strToAscii(session_id).split(","),
-            ...new Array(1).fill(session_status),
-        ];
-        clearInterval(this.udpAudioTimer);
-        this.udpAudioTimer = setInterval(() => {
-            this.udpAudioSocket.send(arrayToAb2(message))
-        }, CONNECTION_TIMEOUT)
-    }
-
-    /**
-     * 开启/关闭麦克风
-     * @param command 命令，true开启；false关闭
-     */
-    microState(command: boolean, data: subscribeHeader) {
-        if (command == true) {
-            wx.showLoading({
-                title: "请稍等..."
-            });
-            this.subscribeAudio(data)
-            wx.hideLoading();
-            console.log("开启麦克风");
-        }
-        if (command == false) {
-            this.keepAudio(data);
-            recorder.stop();
-            console.log("关闭麦克风");
-        }
-    }
-
-    /**
-     * 开启/关闭扬声器
-     * @param command 命令，true开启；false关闭
-     */
-    speakerState(command: boolean) {
-        if (command == true) {
-            InnerAudioContext.volume = 1;
-            console.log("开启扬声器");
-        }
-        if (command == false) {
-            InnerAudioContext.volume = 0;
-            console.log("关闭扬声器");
-        }
-    }
-
-    /**
-     * udpVideo的监听回调函数
-     * @param fn 外部使用箭头函数
-     */
-    onMessageUDPVideo(fn: Function) {
-
-        this.udpVideoSocket.onMessage(res => {
-
-            decryptVideo(res).then(video => {
-
-                const base64Img = wx.arrayBufferToBase64(video as ArrayBufferLike);
-                fn(base64Img);
-            }).catch((err) => {
-                // console.log(err, "报错了捏video");
-            });
-        })
-    }
-
-    /**
-     * udpAudio的监听回调函数
-     * @param fn 外部使用箭头函数
-     */
-    onMessageUDPAudio(fn: Function) {
-        this.udpAudioSocket.onMessage(res => {
-            decryptAudio(res).then(res => {
-                fn(res);
-            }).catch((err) => {
-                // console.log(err);
-            })
-        })
-    }
 }
 
 /**
@@ -681,8 +543,52 @@ export function init(device_id, isLAN = true) {
             return;
         }
         // 当前是否开启wifi
-        const { wifi } = await wx.getConnectedWifi({});
-        if (!wifi) {
+        try {
+            await wx.startWifi();
+            const { wifi } = await wx.getConnectedWifi({});
+            if (!wifi) {
+                media = _media;
+                reslove({
+                    media: media,
+                    state: '公网'
+                });
+                return;
+            }
+            console.log("开始搜索");
+
+            // 兜底 500ms后必须结束
+            const initTimeout = setTimeout(() => {
+                media = _media;
+                clearInterval(UDPSearchInterval);
+                reslove({
+                    media: media,
+                    state: '公网'
+                });
+                return;
+            }, 500);
+            // UDP广播帧搜索
+            const UDPSearchInterval = setInterval(() => {
+                LAN_UDP.searchDevice();
+            }, 50);
+            LAN_UDP.onMessage(async (res) => {
+                const { msg: { did, ip } } = res;
+                if (device_id == did) {
+                    // 初始化
+                    media = LAN_Media;
+                    LAN_Media.init(ip);
+                    await TCPSocket.connect(ip, 5555);
+                    // 卸载监听
+                    clearInterval(UDPSearchInterval);
+                    clearTimeout(initTimeout);
+                    LAN_UDP.offMessage();
+                    reslove({
+                        media: media,
+                        state: '内网'
+                    });
+                    return;
+                }
+            })
+        } catch {
             media = _media;
             reslove({
                 media: media,
@@ -690,41 +596,10 @@ export function init(device_id, isLAN = true) {
             });
             return;
         }
-        // 兜底 500ms后必须结束
-        const initTimeout = setTimeout(() => {
-            media = _media;
-            clearInterval(UDPSearchInterval);
-            reslove({
-                media: media,
-                state: '公网'
-            });
-            return;
-        }, 500);
-        // UDP广播帧搜索
-        const UDPSearchInterval = setInterval(() => {
-            LAN_UDP.searchDevice();
-        }, 50);
-        LAN_UDP.onMessage(res => {
-            const { msg: { did, ip } } = res;
-            if (device_id == did) {
-                // 初始化
-                media = LAN_Media;
-                LAN_Media.init(ip);
-                TCPSocket.connect(ip, 5555)
-                // 卸载监听
-                clearInterval(UDPSearchInterval);
-                clearTimeout(initTimeout);
-                LAN_UDP.offMessage();
-                reslove({
-                    media: media,
-                    state: '内网'
-                });
-                return;
-            }
-        })
     })
 }
 
-export const _media = new Media(option)
-export const LAN_Media = new LAN_MediaClass()
-export let media;
+export const _media = new Media(option);
+export const LAN_Media = new LAN_MediaClass();
+
+export let media = new Media(option);

@@ -15,10 +15,10 @@ class WebSocketApiBase {
 
     connectSocket() {
         return new Promise((reslove, reject) => {
-            if (this.ws != undefined) {
-                reslove("已有socket连接");
-                return;
-            }
+            // if (this.ws != undefined) {
+            //     reslove("已有socket连接");
+            //     return;
+            // }
             this.ws = wx.connectSocket({
                 url: this.url,
                 success: res => {
@@ -44,7 +44,7 @@ class WebSocketApiBase {
                         reject(err);
                     }
                 })
-            }else {
+            } else {
                 this.ws_send(data);
             }
 
@@ -69,6 +69,8 @@ class WebSocketApiBase {
     }
 }
 
+
+// 在公网中，客户端与设备端的通信主要依赖Websocket，
 class WebSocketModel extends WebSocketApiBase {
     private wsSocketTimer;
 
@@ -93,7 +95,27 @@ class WebSocketModel extends WebSocketApiBase {
      */
     async subcribe(device_id: string, device_key: string) {
         // 发送订阅信息
-        this.ws_send(`cmd=subscribe&topic=device_${device_id}&from=control&device_id=${device_id}&device_key=${device_key}`).then(res => console.log(res))
+        this.ws_send(`cmd=subscribe&topic=device_${device_id}&from=control&device_id=${device_id}&device_key=${device_key}`)
+            .then(res => console.log(res))
+            .catch( (err) => {
+                console.log(err);
+                
+                // const demo = await this.connectSocket();
+                // console.log(demo);
+                
+                // this.subcribe(device_id, device_key)
+            })
+    }
+
+
+    onError(fn) {
+        this.ws.onError
+    }
+    onClose(fn) {
+        this.ws.onClose(res => {
+            this.isConnect = false;
+            fn(res)
+        })
     }
 
     /**
@@ -105,7 +127,10 @@ class WebSocketModel extends WebSocketApiBase {
         const timestamp1 = Date.parse(new Date() as any);
         const message = `cmd=publish&topic=control_${device_id}&device_id=${device_id}&device_key=${device_key}&message={"cmd":${cmd},"pv":0,"sn":"${timestamp1}","msg":${msg}}`;
 
-        this.ws_send(message).then(res => console.log(res)).catch(err => console.log(err))
+        this.ws_send(message).then(res => console.log(res)).catch(async (err) => {
+            await this.connectSocket();
+            this.subcribe(device_id, device_key)
+        })
     }
 
     /**

@@ -10,15 +10,15 @@ export const options: WechatMiniprogram.RecorderManagerStartOption = {
     format: 'PCM', //音频格式，有效值 aac/mp3等  
     frameSize: 1,  // 2kb
 }
-recorder.onStart(() => {
-    console.log('recorder start');
-})
-recorder.onPause(() => {
-    console.log('recorder pause');
-})
+
 recorder.onStop((res) => {
     console.log('recorder stop', res)
     if (res.duration >= 600000) {
         recorder.start(options);   //重新开始录音
     }
 })
+
+// recorder.onFrameRecorded(res => {
+//     const { frameBuffer } = res;
+//     this.stackAudio = this.stackAudio.concat(ab2ToArr(frameBuffer));
+// })
