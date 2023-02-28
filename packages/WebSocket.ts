@@ -6,86 +6,132 @@ import { decryptWSMessage } from "../utils/decrypt";
 // 封装的 websocket 官方api基类
 class WebSocketApiBase {
     public url: string;
-    public ws: WechatMiniprogram.SocketTask | any;
-    public isConnect = false;
+    public ws: WechatMiniprogram.SocketTask;
+    public connectStatus = null;
+
+    public heartbeatInterval = null; // 心跳定时器
+    public dropReconnectInterval = null; // 掉线重连定时器
+    public dropReconnectCount = 0;
+
+    public propsWebsocketMessage:Function = (res) => {};
 
     constructor(url: string) {
         this.url = url;
     }
 
-    connectSocket() {
-        return new Promise((reslove, reject) => {
-            // if (this.ws != undefined) {
-            //     reslove("已有socket连接");
-            //     return;
-            // }
-            this.ws = wx.connectSocket({
-                url: this.url,
-                success: res => {
-                    this.isConnect = true;
-                    reslove(res);
-                },
-                fail: err => {
-                    reject(err)
-                }
-            });
-        })
-    }
-
-    ws_send(data) {
-        return new Promise((reslove, reject) => {
-            if (this.isConnect) {
-                this.ws.send({
-                    data: data,
-                    success: (res) => {
-                        reslove("通过 socket 发送的 message :" + data)
-                    },
-                    fail: err => {
-                        reject(err);
-                    }
-                })
-            } else {
-                this.ws_send(data);
-            }
-
-        })
-    }
-
     /**
-     * websocket连接打开
-     * @param fn 要执行的函数
+     * 连接到指定socket地址
      */
-    onOpen(fn) {
-        this.ws.onOpen(() => {
-            fn();
-        })
-        this.ws.onError(err => {
-            console.log(err, "websocket连接失败");
-            wx.showToast({
-                title: "socket连接失败，请重新启动",
-                icon: 'none'
-            })
-        })
-    }
-}
+    connectSocket() {
+        this.connectStatus = null;
+        const websocket = wx.connectSocket({
+            url: this.url, timeout: 20000, header: {},fail:err => {console.log(err);
+            }
+        });
+        websocket.onOpen(() => {
+            this.connectStatus = "success";
+            console.log("连接成功websocket:" + this.url);
+            // 保活心跳
+            wx.hideLoading();
+            this.keepConnect();
+        });
+        websocket.onClose(() => {
+            if (this.connectStatus != "quit")
+                this.connectStatus = "close";
+        });
+        websocket.onError((err) => {
+            console.log(err);
+            
+            if (this.connectStatus != "quit")
+                this.connectStatus = "error";
+        });
+        // 接收消息事件
+        websocket.onMessage((res) => {
+            // console.log(res);
+            const response = decryptWSMessage(res.data);
+            Object.assign(response, {type: 'websocket'})
+            // console.log("websocket接收到消息：", response);
+            if (response.dpid) this.propsWebsocketMessage(response);
+        });
+        this.ws = websocket;
 
-
-// 在公网中，客户端与设备端的通信主要依赖Websocket，
-class WebSocketModel extends WebSocketApiBase {
-    private wsSocketTimer;
-
-    constructor() {
-        super(ADDRESS_WEBSOCKET)
+        // 掉线重连检测
+        this.dropReconnect();
     }
 
     /**
      * 发送心跳包，保持websocket连接
      */
     keepConnect() {
-        clearInterval(this.wsSocketTimer);
-        this.wsSocketTimer = setInterval(() => {
-            this.ws_send(`cmd=ping`)
+        clearInterval(this.heartbeatInterval);
+        this.heartbeatInterval = setInterval(() => {
+            if (this.connectStatus == "quit")
+                clearInterval(this.heartbeatInterval);
+            else if (this.connectStatus == "success")
+                this.ws_send(`cmd=ping`);
         }, CONNECTION_WEBSOCKET_TIMEOUT)
+    }
+
+    /**
+     * websocket掉线重连
+     */
+    dropReconnect() {
+        const dropReconnectInterval = this.dropReconnectInterval;
+        if (dropReconnectInterval) clearInterval(dropReconnectInterval);
+
+        this.dropReconnectInterval = setInterval(() => {
+            const connectStatus = this.connectStatus;
+            if (connectStatus == null || connectStatus == "success") return;
+
+            // 掉线重连
+            wx.showLoading({ title: '掉线重连中...' });
+            clearInterval(this.dropReconnectInterval);
+            this.dropReconnectCount++;
+            if (this.dropReconnectCount == 3) {
+                wx.showToast({ title: '连接失败，请重启小程序' });
+                return;
+            }
+            this.connectSocket();
+        }, 1000);
+    }
+
+    close() {
+        const websocket = this.ws,
+            heartbeatInterval = this.heartbeatInterval,
+            dropReconnectInterval = this.dropReconnectInterval;
+
+        console.log("关闭Websocket");
+        // 关闭全局定时器
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
+        if (dropReconnectInterval) clearInterval(dropReconnectInterval);
+        // 关闭socket
+        if (websocket) websocket.close({});
+
+        this.ws = null;
+        this.connectStatus = "quit";
+        this.heartbeatInterval = null;
+        this.dropReconnectInterval = null;
+    }
+
+    /**
+     * 向绑定的socket地址里发送数据
+     * @param data 数据
+     */
+    ws_send(data) {
+        if (!this.ws || this.connectStatus != 'success') {
+            return false
+        };
+        console.log("发送成功:", data);
+        this.ws.send({ data: data });
+        return true;
+    }
+}
+
+
+// 在公网中，客户端与设备端的通信主要依赖Websocket，
+class WebSocketModel extends WebSocketApiBase {
+    constructor() {
+        super(ADDRESS_WEBSOCKET)
     }
 
     /**
@@ -94,32 +140,11 @@ class WebSocketModel extends WebSocketApiBase {
      * @param device_key 设备key
      */
     async subcribe(device_id: string, device_key: string) {
-        // 发送订阅信息
         this.ws_send(`cmd=subscribe&topic=device_${device_id}&from=control&device_id=${device_id}&device_key=${device_key}`)
-            .then(res => console.log(res))
-            .catch( (err) => {
-                console.log(err);
-                
-                // const demo = await this.connectSocket();
-                // console.log(demo);
-                
-                // this.subcribe(device_id, device_key)
-            })
-    }
-
-
-    onError(fn) {
-        this.ws.onError
-    }
-    onClose(fn) {
-        this.ws.onClose(res => {
-            this.isConnect = false;
-            fn(res)
-        })
     }
 
     /**
-     * 组装要发送的信息, 并发送
+     * 向指定的设备发送消息
      * @param param 
      */
     assembleDataSend({ msg, cmd, device_id, device_key }) {
@@ -127,10 +152,7 @@ class WebSocketModel extends WebSocketApiBase {
         const timestamp1 = Date.parse(new Date() as any);
         const message = `cmd=publish&topic=control_${device_id}&device_id=${device_id}&device_key=${device_key}&message={"cmd":${cmd},"pv":0,"sn":"${timestamp1}","msg":${msg}}`;
 
-        this.ws_send(message).then(res => console.log(res)).catch(async (err) => {
-            await this.connectSocket();
-            this.subcribe(device_id, device_key)
-        })
+        this.ws_send(message)
     }
 
     /**
@@ -138,12 +160,7 @@ class WebSocketModel extends WebSocketApiBase {
      * @param fn 外部使用箭头函数
      */
     onMessage(fn: Function) {
-        this.ws.onMessage(res => {
-            console.log(res);
-            const response = decryptWSMessage(res.data);
-            // console.log("websocket接收到消息：", response);
-            if (response.dpid) fn(response);
-        })
+        this.propsWebsocketMessage = fn;
     }
 }
 

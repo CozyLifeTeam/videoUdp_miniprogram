@@ -24,7 +24,7 @@ export class UDPSocket {
             message: message
         })
         const now = Date.now();
-        console.log("send", this.address, this.port, "send23333", now - this.pre);
+        // console.log("send", this.address, this.port, "send23333", now - this.pre);
         this.pre = now;
     }
 
@@ -78,9 +78,31 @@ class LANCommunication extends UDPSocket {
             msg: {}
         }
         const msg = agreement_send(cmd0);
-        // console.log("发送消息了", msg);
+        console.log("发送消息了", msg);
         this.send(msg);
     }
+
+    getLANdevice(allDeviceArr, interval) {
+        const timer = setInterval(() => {
+            this.searchDevice();
+        }, interval)
+        const LANdeviceArr = [];
+        this.onMessage((res) => {
+            // 设备回复的device_id和ip
+            const { msg: { did, ip } } = res;
+            // 从已配网的设备中寻找内网中的设备
+            allDeviceArr.forEach(item => {
+                if (did == item.device_id) {
+                    LANdeviceArr.push({
+                        device_id: did,
+                        ip: ip
+                    })
+                }
+            })
+        })
+        return LANdeviceArr;
+    }
+
 
 
     /**
